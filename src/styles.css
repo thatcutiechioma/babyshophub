@@ -363,6 +363,19 @@ body {
   height: 1.35rem;
 }
 
+.brand-lockup > span:last-child {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.brand-lockup small {
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .main-nav {
   display: flex;
   order: 3;
