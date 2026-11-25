@@ -81,7 +81,7 @@ export function AccountPage() {
     setSavingProfile(true);
     const { error: saveError } = await supabase.from("profiles").upsert(
       {
-        user_id: user.id,
+        user_id: userId,
         full_name: fullName.trim(),
         phone: phone.trim(),
         preferred_payment_method: paymentMethod,
@@ -95,7 +95,7 @@ export function AccountPage() {
       return;
     }
     setProfileMessage("Your account details are saved.");
-    await queryClient.invalidateQueries({ queryKey: ["shop", "profile", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["shop", "profile", userId] });
   }
 
   function startEditingAddress(address: DeliveryAddress) {
@@ -129,7 +129,7 @@ export function AccountPage() {
       const { error: clearDefaultError } = await supabase
         .from("addresses")
         .update({ is_default: false })
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
       if (clearDefaultError) {
         setSavingAddress(false);
         setError("We could not update your default delivery address.");
@@ -150,8 +150,8 @@ export function AccountPage() {
       updated_at: new Date().toISOString(),
     };
     const result = editingAddressId
-      ? await supabase.from("addresses").update(values).eq("id", editingAddressId).eq("user_id", user.id)
-      : await supabase.from("addresses").insert({ ...values, user_id: user.id });
+      ? await supabase.from("addresses").update(values).eq("id", editingAddressId).eq("user_id", userId)
+      : await supabase.from("addresses").insert({ ...values, user_id: userId });
     setSavingAddress(false);
     if (result.error) {
       setError("That delivery address could not be saved. Please check the details and try again.");
@@ -159,7 +159,7 @@ export function AccountPage() {
     }
     setAddressMessage(editingAddressId ? "Your address is updated." : "Your delivery address is saved.");
     resetAddressForm();
-    await queryClient.invalidateQueries({ queryKey: ["shop", "addresses", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["shop", "addresses", userId] });
   }
 
   async function removeAddress(addressId: string) {
@@ -168,13 +168,13 @@ export function AccountPage() {
       .from("addresses")
       .delete()
       .eq("id", addressId)
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
     if (removeError) {
       setError("That delivery address could not be removed.");
       return;
     }
     if (editingAddressId === addressId) resetAddressForm();
-    await queryClient.invalidateQueries({ queryKey: ["shop", "addresses", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["shop", "addresses", userId] });
   }
 
   return (
@@ -347,7 +347,7 @@ export function SupportPage() {
     setError("");
     setSubmitting(true);
     const { error: insertError } = await supabase.from("support_requests").insert({
-      user_id: user.id,
+      user_id: userId,
       subject: subject.trim(),
       message: message.trim(),
     });
@@ -359,7 +359,7 @@ export function SupportPage() {
     setSubject("");
     setMessage("");
     setFeedback("Your note is with our care team.");
-    await queryClient.invalidateQueries({ queryKey: ["shop", "support", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["shop", "support", userId] });
   }
 
   return (

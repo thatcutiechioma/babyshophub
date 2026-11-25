@@ -277,6 +277,10 @@ export function ProductDetailPage({ slug }: { slug: string }) {
       setError("Sign in to leave a review.");
       return;
     }
+    if (!product) {
+      setError("That item is no longer in the collection.");
+      return;
+    }
     const { data: profile } = await supabase
       .from("profiles")
       .select("full_name")

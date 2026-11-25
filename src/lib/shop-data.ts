@@ -54,6 +54,8 @@ export const productReviewsQueryOptions = (productId: string) =>
   queryOptions({
     queryKey: ["shop", "reviews", productId],
     queryFn: async () => {
+      // A missing product has no id yet; querying with an empty id would fail.
+      if (!productId) return [];
       const { data, error } = await supabase
         .from("product_reviews")
         .select("*")
@@ -160,11 +162,11 @@ export const adminDataQueryOptions = queryOptions({
     if (error) throw error;
 
     return {
-      products: productsResult.data,
-      profiles: profilesResult.data,
-      adminUserIds: rolesResult.data.map((role) => role.user_id),
-      orders: ordersResult.data,
-      supportRequests: supportResult.data,
+      products: productsResult.data ?? [],
+      profiles: profilesResult.data ?? [],
+      adminUserIds: (rolesResult.data ?? []).map((role) => role.user_id),
+      orders: ordersResult.data ?? [],
+      supportRequests: supportResult.data ?? [],
     };
   },
 });
