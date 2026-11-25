@@ -39,9 +39,11 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    void supabase.auth.getUser().then(({ data, error }) => {
+        // getSession() reads the saved session without a network call, so a brief connection
+    // problem no longer looks like being signed out.
+    void supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      setUser(error ? null : data.user);
+      setUser(data.session?.user ?? null);
       setAuthLoading(false);
     });
 
@@ -141,10 +143,13 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         setCart((current) => current.filter((line) => line.productId !== productId)),
       clearCart: () => setCart([]),
       signOut: async () => {
-        await queryClient.cancelQueries();
-        queryClient.clear();
+       await queryClient.cancelQueries();
         const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        // If the server could not be reached, still end the session on this device.
+        if (error) await supabase.auth.signOut({ scope: "local" });
+        queryClient.clear();
+        setUser(null);
+        setIsAdmin(false);
         await router.navigate({ to: "/auth", replace: true });
       },
     }),

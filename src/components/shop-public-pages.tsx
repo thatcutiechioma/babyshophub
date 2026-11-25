@@ -17,14 +17,12 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
-import { LovableMark } from "@lovable.dev/cloud-auth-js/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useShop } from "@/components/shop-provider";
-import { lovable } from "@/integrations/lovable";
 import { supabase } from "@/integrations/supabase/client";
 import {
   categoryOptions,
@@ -514,6 +512,41 @@ function safeDestination(value?: string): SafeDestination {
   return allowed.includes(path as SafeDestination) ? (path as SafeDestination) : "/account";
 }
 
+function authErrorMessage(error: unknown, mode: "signin" | "signup"): string {
+  const e = (error ?? {}) as { code?: string; message?: string; status?: number };
+  const code = e.code ?? "";
+  const message = (e.message ?? "").toLowerCase();
+
+  if (code === "invalid_credentials" || message.includes("invalid login credentials")) {
+    return "That email and password don't match. Please check them and try again.";
+  }
+  if (code === "email_not_confirmed" || message.includes("email not confirmed")) {
+    return "Please confirm your email first. Check your inbox for the confirmation link.";
+  }
+  if (code === "user_already_exists" || message.includes("already registered")) {
+    return "An account with that email already exists. Try signing in instead.";
+  }
+  if (code === "weak_password" || message.includes("password should")) {
+    return "Please choose a stronger password (at least 8 characters).";
+  }
+  if (code === "signup_disabled") {
+    return "New accounts can't be created right now. Please try again later.";
+  }
+  if (
+    code === "over_request_rate_limit" ||
+    code === "over_email_send_rate_limit" ||
+    e.status === 429
+  ) {
+    return "Too many attempts. Please wait a minute and try again.";
+  }
+  if (message.includes("failed to fetch") || message.includes("network")) {
+    return "We couldn't reach the server. Check your internet connection and try again.";
+  }
+  return mode === "signup"
+    ? "We could not create that account. Please try again."
+    : "We could not sign you in. Please try again.";
+}
+
 export function AuthPage({ returnTo }: { returnTo?: string }) {
   const navigate = useNavigate();
   const { user, authLoading } = useShop();
@@ -530,6 +563,16 @@ export function AuthPage({ returnTo }: { returnTo?: string }) {
     if (!authLoading && user) void navigate({ to: destination, replace: true });
   }, [authLoading, destination, navigate, user]);
 
+  // Google sends people back here with an error in the address if sign-in was cancelled or failed.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const description = params.get("error_description");
+    if (description) {
+      setError("Google sign-in did not finish. Please try again or use email instead.");
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }, []);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setNotice("");
@@ -538,41 +581,50 @@ export function AuthPage({ returnTo }: { returnTo?: string }) {
     try {
       if (mode === "signup") {
         const { data, error: signupError } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             data: { full_name: name.trim() },
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: `${window.location.origin}/auth`,
           },
         });
         if (signupError) throw signupError;
+        // Supabase hides whether an email is taken by returning a user with no identities.
+        if (data.user && data.user.identities?.length === 0) {
+          setError("An account with that email already exists. Try signing in instead.");
+          return;
+        }
         if (!data.session) {
           setNotice("Check your email to confirm your account, then come back to sign in.");
           return;
         }
       } else {
-        const { error: signinError } = await supabase.auth.signInWithPassword({ email, password });
+        const { error: signinError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
         if (signinError) throw signinError;
       }
       await navigate({ to: destination, replace: true });
-    } catch {
-      setError(mode === "signup" ? "We could not create that account. Check your details and try again." : "Those sign-in details did not work. Please try again.");
+    } catch (caught) {
+      setError(authErrorMessage(caught, mode));
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function socialSignIn(provider: "google" | "lovable") {
+  async function googleSignIn() {
     setNotice("");
     setError("");
-    const redirectUri = `${window.location.origin}/auth?returnTo=${encodeURIComponent(destination)}`;
-    const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: redirectUri });
-    if (result.error) {
-      setError("That sign-in option is not available right now. Please try email instead.");
-      return;
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth?returnTo=${encodeURIComponent(destination)}`,
+      },
+    });
+    if (oauthError) {
+      setError("Google sign-in isn't available right now. Please use email instead.");
     }
-    if (result.redirected) return;
-    await navigate({ to: destination, replace: true });
   }
 
   return (
@@ -589,11 +641,8 @@ export function AuthPage({ returnTo }: { returnTo?: string }) {
         <h2 id="auth-title">{mode === "signup" ? "Make room for lovely" : "Good to see you"}</h2>
         <p className="auth-copy">Keep your delivery details close and your orders easy to follow.</p>
         <div className="social-auth-buttons">
-          <Button type="button" variant="outline" className="google-auth-button" onClick={() => void socialSignIn("google")}>
+                   <Button type="button" variant="outline" className="google-auth-button" onClick={() => void googleSignIn()}>
             <GoogleMark /> Continue with Google
-          </Button>
-          <Button type="button" variant="outline" className="lovable-auth-button" onClick={() => void socialSignIn("lovable")}>
-            <LovableMark /> Continue with Lovable
           </Button>
         </div>
         <div className="auth-divider"><span>or use email</span></div>

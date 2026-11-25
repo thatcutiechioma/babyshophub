@@ -56,7 +56,7 @@ const blankAddress: AddressDraft = {
 };
 
 export function AccountPage() {
-  const { user } = useShop();
+  const { user, signOut } = useShop();
   const queryClient = useQueryClient();
   const userId = user?.id ?? "";
   const { data: profile } = useSuspenseQuery(profileQueryOptions(userId));
@@ -184,7 +184,10 @@ export function AccountPage() {
         <section className="account-section">
           <div className="section-title-row">
             <div><p className="eyebrow">Your details</p><h2>About you</h2></div>
-            <span className="account-email">{user.email}</span>
+                        <div className="flex flex-wrap items-center gap-3">
+              <span className="account-email">{user.email}</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => void signOut()}>Sign out</Button>
+            </div>
           </div>
           <form onSubmit={saveProfile} className="stacked-form">
             <div className="form-grid two-columns">
