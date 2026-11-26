@@ -563,15 +563,7 @@ export function AuthPage({ returnTo }: { returnTo?: string }) {
     if (!authLoading && user) void navigate({ to: destination, replace: true });
   }, [authLoading, destination, navigate, user]);
 
-  // Google sends people back here with an error in the address if sign-in was cancelled or failed.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const description = params.get("error_description");
-    if (description) {
-      setError("Google sign-in did not finish. Please try again or use email instead.");
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    }
-  }, []);
+  
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -613,20 +605,7 @@ export function AuthPage({ returnTo }: { returnTo?: string }) {
     }
   }
 
-  async function googleSignIn() {
-    setNotice("");
-    setError("");
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth?returnTo=${encodeURIComponent(destination)}`,
-      },
-    });
-    if (oauthError) {
-      setError("Google sign-in isn't available right now. Please use email instead.");
-    }
-  }
-
+  
   return (
     <div className="store-container auth-layout page-container">
       <div className="auth-art-panel">
@@ -640,12 +619,7 @@ export function AuthPage({ returnTo }: { returnTo?: string }) {
         <p className="eyebrow">Your BabyShopHub account</p>
         <h2 id="auth-title">{mode === "signup" ? "Make room for lovely" : "Good to see you"}</h2>
         <p className="auth-copy">Keep your delivery details close and your orders easy to follow.</p>
-        <div className="social-auth-buttons">
-                   <Button type="button" variant="outline" className="google-auth-button" onClick={() => void googleSignIn()}>
-            <GoogleMark /> Continue with Google
-          </Button>
-        </div>
-        <div className="auth-divider"><span>or use email</span></div>
+        
         <form onSubmit={submit} className="stacked-form">
           {mode === "signup" ? (
             <div className="form-field">
